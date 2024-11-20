@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 # 기준 도형들을 Matplotlib로 시각화 (확인용)
 def displayOriginalIcon():
     plt.figure(figsize=(12, 6))  # 그래프 크기 설정
@@ -18,7 +19,7 @@ def displayOriginalIcon():
     plt.imshow(icon2, cmap='grey')
     plt.axis('off')
 
-    # 세 번째 도형 (원)
+    # 세 번째 도형 
     plt.subplot(1, 3, 3)  # 세 번째 위치
     plt.title("Icon 3 (Circle)")
     plt.imshow(icon3, cmap='brg')
@@ -63,10 +64,10 @@ original_img = cv2.imread("images.jpg", cv2.IMREAD_GRAYSCALE)
 icon1 = original_img[75:181, 41:150]  # 첫 번째 도형 (예: 사각형) 116*109
 icon2 = original_img[213:319, 41:154] # 두 번째 도형 (예: 삼각형)
 icon3 = original_img[668:780, 46:155] # 세 번째 도형 (예: 원)
-# icon3 = original_img[520:624, 38:159] # 세 번째 도형 (예: 하트)
+#icon3 = original_img[519:624, 38:159] # 세 번째 도형 (예: 하트)
 
 # 기준 도형들을 Matplotlib로 시각화 (확인용)
-# displayOriginalIcon()
+#displayOriginalIcon()
 
 # 축소된 아이콘 생성 (1/2 크기로 축소)
 icon1_resized = cv2.resize(icon1, (icon1.shape[1] // 2, icon1.shape[0] // 2))
@@ -89,13 +90,14 @@ locations2 = np.where(result2 >= w)
 # 세 번째 도형 매칭
 result3 = cv2.matchTemplate(original_img, icon3_resized, cv2.TM_CCOEFF_NORMED)
 locations3 = np.where(result3 >= w-0.1)
+# 0.1 : 오각형, 0. : 하트
 
 # 4. 매칭된 위치에 박스 그리기
 # 원본 이미지 복사본 생성
 output_img = original_img.copy()
 output_img = cv2.cvtColor(original_img, cv2.COLOR_GRAY2BGR)
 
-# # 사각형 매칭 결과 표시 (파란색)
+# 사각형 매칭 결과 표시 (파란색)
 for pt in zip(*locations1[::-1]):
     cv2.rectangle(output_img, pt, (pt[0] + icon1_resized.shape[1], pt[1] + icon1_resized.shape[0]), (0, 0, 255), 2)
 
@@ -103,7 +105,7 @@ for pt in zip(*locations1[::-1]):
 for pt in zip(*locations2[::-1]):
     cv2.rectangle(output_img, pt, (pt[0] + icon2_resized.shape[1], pt[1] + icon2_resized.shape[0]), (255, 0, 0), 2)
 
-# 오각형 매칭 결과 표시 (초록색)
+# 매칭 결과 표시 (초록색)
 for pt in zip(*locations3[::-1]):
     cv2.rectangle(output_img, pt, (pt[0] + icon3_resized.shape[1], pt[1] + icon3_resized.shape[0]), (0, 255, 0), 2)
 
