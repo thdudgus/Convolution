@@ -28,7 +28,7 @@ def displayOriginalIcon():
     plt.tight_layout()  # 간격 자동 조정
     plt.show()
 
-# 기준 도형들을 Matplotlib로 시각화 (확인용)
+# 1/2 아이콘들을 Matplotlib로 시각화 (확인용)
 def displayResizedIcon():
     plt.figure(figsize=(12, 4))  # 그래프 크기 설정
 
@@ -85,15 +85,41 @@ def calculate_average_coordinates(locations, radius, min_count):
     average_coords = [np.mean(cluster, axis=0) for cluster in clusters]
     return np.array(average_coords)
 
-# 평균 좌표에 새로운 사각형 그리기
+# 평균 좌표 기준 아이콘을 감싸는 사각형 그리기
 def draw_average_locations(image, averages, color=(0, 255, 255)):
     for coord in averages:
         center = (int(coord[0]), int(coord[1]))  # 좌표를 정수로 변환
         size = 110  # 사각형 크기 설정
-        top_left = (center[0] - size // 2, center[1] - size // 2 +10)
-        bottom_right = (center[0] + size // 2 +30, center[1] + size // 2 +30)
+        top_left = (center[0] - size // 2 +10, center[1] - size // 2 +10)
+        bottom_right = (center[0] + size // 2 +40, center[1] + size // 2 +40)
         cv2.rectangle(image, top_left, bottom_right, color, 2)
 # ------------------------------------------------------------------------------
+
+##########################################################
+def custom_match_template(image, template):
+    """
+    입력 이미지(image)에서 템플릿(template)을 직접 매칭하는 함수
+    """
+    # 이미지와 템플릿의 크기
+    img_h, img_w = image.shape
+    tpl_h, tpl_w = template.shape
+
+    # 결과 저장 배열 초기화
+    result = np.zeros((img_h - tpl_h + 1, img_w - tpl_w + 1), dtype=np.float32)
+
+    # 템플릿과 각 위치의 부분 이미지 간의 합성곱 계산
+    for y in range(result.shape[0]):  # 세로 위치
+        for x in range(result.shape[1]):  # 가로 위치
+            # 현재 위치의 이미지 패치 추출
+            image_patch = image[y:y + tpl_h, x:x + tpl_w]
+
+            # 정규화된 템플릿 매칭 방식 (CCOEFF-NORMED 유사)
+            numerator = np.sum((image_patch - image_patch.mean()) * (template - template.mean()))
+            denominator = np.sqrt(np.sum((image_patch - image_patch.mean())**2) * np.sum((template - template.mean())**2))
+            result[y, x] = numerator / denominator if denominator != 0 else 0
+
+    return result
+##########################################################
 
 # 1. 원본 이미지 로드
 original_img = cv2.imread("images.jpg", cv2.IMREAD_GRAYSCALE)
@@ -103,7 +129,7 @@ original_img = cv2.imread("images.jpg", cv2.IMREAD_GRAYSCALE)
 icon1 = original_img[75:181, 41:150]  # 첫 번째 도형 (예: 사각형) 116*109
 icon2 = original_img[213:319, 41:154] # 두 번째 도형 (예: 삼각형)
 icon3 = original_img[668:780, 46:155] # 세 번째 도형 (예: 원)
-icon3 = original_img[519:624, 38:159] # 세 번째 도형 (예: 하트)
+#icon3 = original_img[519:624, 38:159] # 세 번째 도형 (예: 하트)
 
 # 기준 도형들을 Matplotlib로 시각화 (확인용)
 #displayOriginalIcon()
@@ -119,17 +145,28 @@ icon3_resized = cv2.resize(icon3, (icon3.shape[1] // 2, icon3.shape[0] // 2))
 w = 0.5
 # 3. 합성곱 기반 매칭
 # 첫 번째 도형 매칭
-result1 = cv2.matchTemplate(original_img, icon1_resized, cv2.TM_CCOEFF_NORMED)
-locations1 = np.where(result1 >= w)  # 임계값 0.8 이상인 위치
+# result1 = cv2.matchTemplate(original_img, icon1_resized, cv2.TM_CCOEFF_NORMED)
+# locations1 = np.where(result1 >= w)  # 임계값 0.8 이상인 위치
 
-# 두 번째 도형 매칭
-result2 = cv2.matchTemplate(original_img, icon2_resized, cv2.TM_CCOEFF_NORMED)
+# # 두 번째 도형 매칭
+# result2 = cv2.matchTemplate(original_img, icon2_resized, cv2.TM_CCOEFF_NORMED)
+# locations2 = np.where(result2 >= w)
+
+# # 세 번째 도형 매칭
+# result3 = cv2.matchTemplate(original_img, icon3_resized, cv2.TM_CCOEFF_NORMED)
+# locations3 = np.where(result3 >= w-0.1)
+# # 0.1 : 오각형, 0. : 하트
+
+# 직접 구현한 convolution 기반 matchTemplate 함수 호출
+result1 = custom_match_template(original_img, icon1_resized)
+locations1 = np.where(result1 >= w)
+
+result2 = custom_match_template(original_img, icon2_resized)
 locations2 = np.where(result2 >= w)
 
-# 세 번째 도형 매칭
-result3 = cv2.matchTemplate(original_img, icon3_resized, cv2.TM_CCOEFF_NORMED)
-locations3 = np.where(result3 >= w-0.1)
-# 0.1 : 오각형, 0. : 하트
+result3 = custom_match_template(original_img, icon3_resized)
+locations3 = np.where(result3 >= w - 0.1)
+
 
 # 4. 매칭된 위치에 박스 그리기
 # 원본 이미지 복사본 생성
@@ -137,7 +174,7 @@ output_img = original_img.copy()
 output_img = cv2.cvtColor(original_img, cv2.COLOR_GRAY2BGR)
 
 
-# ㅜㅜㅜㅜㅜㅜㅜ  매칭 최종 결과  ㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜ
+# ㅜㅜㅜㅜㅜㅜㅜ 매칭 결과에 대한 군집 계산 ㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜ
 # 반경 및 최소 좌표 개수 설정 : 민감도 조절 가능.
 radius = 60 # 
 min_count = 10  # 최소 좌표 개수 (군집 크기) 
@@ -168,17 +205,18 @@ for pt in zip(*locations2[::-1]):
 for pt in zip(*locations3[::-1]):
     cv2.rectangle(output_img, pt, (pt[0] + icon3_resized.shape[1], pt[1] + icon3_resized.shape[0]), (0, 255, 0), 2)
 
-# 5. 결과 출력
+
+# # 5. 결과 출력
 plt.figure(figsize=(8, 5)) 
-plt.subplot(1, 2, 1)
-plt.title("Original Image")
-plt.imshow(original_img, cmap='grey')
-plt.subplot(1, 2, 2)
+# plt.subplot(1, 2, 1)
+# plt.title("Original Image")
+# plt.imshow(original_img, cmap='grey')
+#plt.subplot(1, 2, 2)
 plt.title("Detected Matches")
 plt.imshow(output_img, cmap='grey')
 plt.show()
 
-# -----------------------------------
+# # -----------------------------------
 # 결과 출력
 # print("Average locations for Icon 1:", average_locations1)
 # print("Average locations for Icon 2:", average_locations2)
