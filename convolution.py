@@ -103,7 +103,7 @@ original_img = cv2.imread("images.jpg", cv2.IMREAD_GRAYSCALE)
 icon1 = original_img[75:181, 41:150]  # 첫 번째 도형 (예: 사각형) 116*109
 icon2 = original_img[213:319, 41:154] # 두 번째 도형 (예: 삼각형)
 icon3 = original_img[668:780, 46:155] # 세 번째 도형 (예: 원)
-#icon3 = original_img[519:624, 38:159] # 세 번째 도형 (예: 하트)
+icon3 = original_img[519:624, 38:159] # 세 번째 도형 (예: 하트)
 
 # 기준 도형들을 Matplotlib로 시각화 (확인용)
 #displayOriginalIcon()
@@ -137,22 +137,24 @@ output_img = original_img.copy()
 output_img = cv2.cvtColor(original_img, cv2.COLOR_GRAY2BGR)
 
 
-# -----------매칭 최종 결과
-# 반경 및 최소 좌표 개수 설정 : 유사도 조절 가능.
+# ㅜㅜㅜㅜㅜㅜㅜ  매칭 최종 결과  ㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜ
+# 반경 및 최소 좌표 개수 설정 : 민감도 조절 가능.
 radius = 60 # 
 min_count = 10  # 최소 좌표 개수 (군집 크기) 
+customed_count = 8 # 조절용 상수
 
 # 군집 계산
 average_locations1 = calculate_average_coordinates(locations1, radius, min_count)
 average_locations2 = calculate_average_coordinates(locations2, radius, min_count)
 average_locations3 = calculate_average_coordinates(locations3, radius, min_count)
+# average_locations3 = calculate_average_coordinates(locations3, radius, min_count-customed_count)
 
 # 원본 이미지에 평균 좌표 표시
 output_img_with_averages = output_img.copy()
 draw_average_locations(output_img_with_averages, average_locations1, color=(0, 0, 255))  # 사각형
 draw_average_locations(output_img_with_averages, average_locations2, color=(255, 0, 0))  # 삼각형
 draw_average_locations(output_img_with_averages, average_locations3, color=(0, 255, 0))  # 오각형
-# -------------------------------
+# ㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗㅗ
 
 # 사각형 매칭 결과 표시 (파란색)
 for pt in zip(*locations1[::-1]):
