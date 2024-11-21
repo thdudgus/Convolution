@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 # 기준 도형들을 Matplotlib로 시각화 (확인용)
 def displayOriginalIcon():
     plt.figure(figsize=(12, 6))  # 그래프 크기 설정
@@ -55,6 +54,46 @@ def displayResizedIcon():
     plt.tight_layout()  # 간격 자동 조정
     plt.show()
 
+# -------------------------------------------------------------------------------
+# 평균 좌표 계산
+def calculate_average_coordinates(locations, radius, min_count):
+    # 입력: locations (np.array of [y_coords, x_coords]), 반경 radius, 최소 좌표 개수
+    coords = np.column_stack(locations[::-1])  # (x, y) 좌표로 변환
+    visited = set()
+    clusters = []
+
+    for i, pt in enumerate(coords):
+        if i in visited:  # 이미 처리된 점은 스킵
+            continue
+
+        # 반경 내의 점 찾기
+        cluster = [pt]
+        visited.add(i)
+        for j, other_pt in enumerate(coords):
+            if j in visited:
+                continue
+            distance = np.sqrt((pt[0] - other_pt[0]) ** 2 + (pt[1] - other_pt[1]) ** 2)
+            if distance <= radius:
+                cluster.append(other_pt)
+                visited.add(j)
+        
+        # 군집의 좌표 개수가 min_count 이상인 경우만 추가
+        if len(cluster) >= min_count:
+            clusters.append(cluster)
+    
+    # 각 클러스터의 평균 좌표 계산
+    average_coords = [np.mean(cluster, axis=0) for cluster in clusters]
+    return np.array(average_coords)
+
+# 평균 좌표에 새로운 사각형 그리기
+def draw_average_locations(image, averages, color=(0, 255, 255)):
+    for coord in averages:
+        center = (int(coord[0]), int(coord[1]))  # 좌표를 정수로 변환
+        size = 110  # 사각형 크기 설정
+        top_left = (center[0] - size // 2, center[1] - size // 2 +10)
+        bottom_right = (center[0] + size // 2 +30, center[1] + size // 2 +30)
+        cv2.rectangle(image, top_left, bottom_right, color, 2)
+# ------------------------------------------------------------------------------
 
 # 1. 원본 이미지 로드
 original_img = cv2.imread("images.jpg", cv2.IMREAD_GRAYSCALE)
@@ -97,6 +136,24 @@ locations3 = np.where(result3 >= w-0.1)
 output_img = original_img.copy()
 output_img = cv2.cvtColor(original_img, cv2.COLOR_GRAY2BGR)
 
+
+# -----------매칭 최종 결과
+# 반경 및 최소 좌표 개수 설정 : 유사도 조절 가능.
+radius = 60 # 
+min_count = 10  # 최소 좌표 개수 (군집 크기) 
+
+# 군집 계산
+average_locations1 = calculate_average_coordinates(locations1, radius, min_count)
+average_locations2 = calculate_average_coordinates(locations2, radius, min_count)
+average_locations3 = calculate_average_coordinates(locations3, radius, min_count)
+
+# 원본 이미지에 평균 좌표 표시
+output_img_with_averages = output_img.copy()
+draw_average_locations(output_img_with_averages, average_locations1, color=(0, 0, 255))  # 사각형
+draw_average_locations(output_img_with_averages, average_locations2, color=(255, 0, 0))  # 삼각형
+draw_average_locations(output_img_with_averages, average_locations3, color=(0, 255, 0))  # 오각형
+# -------------------------------
+
 # 사각형 매칭 결과 표시 (파란색)
 for pt in zip(*locations1[::-1]):
     cv2.rectangle(output_img, pt, (pt[0] + icon1_resized.shape[1], pt[1] + icon1_resized.shape[0]), (0, 0, 255), 2)
@@ -109,7 +166,7 @@ for pt in zip(*locations2[::-1]):
 for pt in zip(*locations3[::-1]):
     cv2.rectangle(output_img, pt, (pt[0] + icon3_resized.shape[1], pt[1] + icon3_resized.shape[0]), (0, 255, 0), 2)
 
-# 5. 결과 시각화
+# 5. 결과 출력
 plt.figure(figsize=(8, 5)) 
 plt.subplot(1, 2, 1)
 plt.title("Original Image")
@@ -117,4 +174,14 @@ plt.imshow(original_img, cmap='grey')
 plt.subplot(1, 2, 2)
 plt.title("Detected Matches")
 plt.imshow(output_img, cmap='grey')
+plt.show()
+
+# -----------------------------------
+# 결과 출력
+# print("Average locations for Icon 1:", average_locations1)
+# print("Average locations for Icon 2:", average_locations2)
+# print("Average locations for Icon 3:", average_locations3)
+plt.figure(figsize=(8, 5))
+plt.title("Detected Matches with Clustered Rectangles")
+plt.imshow(output_img_with_averages)
 plt.show()
