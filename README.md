@@ -1,5 +1,9 @@
 # Convolution
 Human Interface Media class - assignment
+
+## 구현 OS
+windows
+
 # 실행 방법
 
 1. Python 3.7 이상이 설치되어 있어야 합니다.

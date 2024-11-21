@@ -9,7 +9,7 @@ def displayOriginalIcon():
     # 첫 번째 도형 (사각형)
     plt.subplot(1, 3, 1)  # 한 행에 3개의 그래프, 첫 번째 위치
     plt.title("Icon 1 (Square)")
-    plt.imshow(icon1, cmap='grey')
+    plt.imshow(icon1, cmap='brg')
     plt.axis('off')  # 축 제거
 
     # 두 번째 도형 (삼각형)
@@ -89,50 +89,95 @@ def calculate_average_coordinates(locations, radius, min_count):
 def draw_average_locations(image, averages, color=(0, 255, 255)):
     for coord in averages:
         center = (int(coord[0]), int(coord[1]))  # 좌표를 정수로 변환
-        size = 110  # 사각형 크기 설정
-        top_left = (center[0] - size // 2 +10, center[1] - size // 2 +10)
-        bottom_right = (center[0] + size // 2 +40, center[1] + size // 2 +40)
+        size = 120  # 사각형 크기 설정
+        top_left = (center[0] - size // 2 +30, center[1] - size // 2 +30)
+        bottom_right = (center[0] + size // 2 +30, center[1] + size // 2 +30)
         cv2.rectangle(image, top_left, bottom_right, color, 2)
 # ------------------------------------------------------------------------------
 
 ##########################################################
-def custom_match_template(image, template):
+# def custom_match_template(image, template):
+#     """
+#     입력 이미지(image)에서 템플릿(template)을 직접 매칭하는 함수
+#     """
+#     # 이미지와 템플릿의 크기
+#     img_h, img_w = image.shape
+#     tpl_h, tpl_w = template.shape
+
+#     # 결과 저장 배열 초기화
+#     result = np.zeros((img_h - tpl_h + 1, img_w - tpl_w + 1), dtype=np.float32)
+
+#     # 템플릿과 각 위치의 부분 이미지 간의 합성곱 계산
+#     for y in range(result.shape[0]):  # 세로 위치
+#         for x in range(result.shape[1]):  # 가로 위치
+#             # 현재 위치의 이미지 패치 추출
+#             image_patch = image[y:y + tpl_h, x:x + tpl_w]
+
+#             # 정규화된 템플릿 매칭 방식 (CCOEFF-NORMED 유사)
+#             numerator = np.sum((image_patch - image_patch.mean()) * (template - template.mean()))
+#             denominator = np.sqrt(np.sum((image_patch - image_patch.mean())**2) * np.sum((template - template.mean())**2))
+#             result[y, x] = numerator / denominator if denominator != 0 else 0
+
+#     return result
+
+##########################################################
+def normalized_convolution(image, template):
     """
-    입력 이미지(image)에서 템플릿(template)을 직접 매칭하는 함수
+    합성곱 기반 정규화된 템플릿 매칭 (CCOEFF-NORMED 방식)
     """
-    # 이미지와 템플릿의 크기
     img_h, img_w = image.shape
     tpl_h, tpl_w = template.shape
 
-    # 결과 저장 배열 초기화
+    # 결과 배열 초기화
     result = np.zeros((img_h - tpl_h + 1, img_w - tpl_w + 1), dtype=np.float32)
 
-    # 템플릿과 각 위치의 부분 이미지 간의 합성곱 계산
-    for y in range(result.shape[0]):  # 세로 위치
-        for x in range(result.shape[1]):  # 가로 위치
+    # 템플릿 정규화
+    template_mean = template.mean()
+    template_std = template.std()
+    if template_std == 0:
+        raise ValueError("Template has zero variance")
+    normalized_template = (template - template_mean) / template_std
+
+    # 합성곱 기반 계산
+    for y in range(result.shape[0]):
+        for x in range(result.shape[1]):
             # 현재 위치의 이미지 패치 추출
             image_patch = image[y:y + tpl_h, x:x + tpl_w]
 
-            # 정규화된 템플릿 매칭 방식 (CCOEFF-NORMED 유사)
-            numerator = np.sum((image_patch - image_patch.mean()) * (template - template.mean()))
-            denominator = np.sqrt(np.sum((image_patch - image_patch.mean())**2) * np.sum((template - template.mean())**2))
-            result[y, x] = numerator / denominator if denominator != 0 else 0
+            # 이미지 패치 정규화
+            patch_mean = image_patch.mean()
+            patch_std = image_patch.std()
+            if patch_std == 0:
+                result[y, x] = 0
+                continue
+            normalized_patch = (image_patch - patch_mean) / patch_std
 
+            # 정규화된 템플릿과 패치의 합성곱
+            numerator = np.sum(normalized_patch * normalized_template)
+            denominator = tpl_h * tpl_w  # 템플릿 크기
+            result[y, x] = numerator / (denominator + 1e-8)  # 작은 값을 더해 분모 0 방지
+
+    # 결과 값 정규화 (0 ~ 1)
+    result_min = result.min()
+    result_max = result.max()
+    result = (result - result_min) / (result_max - result_min + 1e-8)
+
+    print("Result max (after normalization):", result.max())
     return result
-##########################################################
+
 
 # 1. 원본 이미지 로드
 original_img = cv2.imread("images.jpg", cv2.IMREAD_GRAYSCALE)
 
 # 2. 기준 도형 아이콘 생성 (가로/세로 축소)
 # 도형 아이콘 영역 설정 (세로 범위, 가로 범위)
-icon1 = original_img[75:181, 41:150]  # 첫 번째 도형 (예: 사각형) 116*109
+icon1 = original_img[77:180, 42:149]  # 첫 번째 도형 (예: 사각형) 116*109
 icon2 = original_img[213:319, 41:154] # 두 번째 도형 (예: 삼각형)
-icon3 = original_img[668:780, 46:155] # 세 번째 도형 (예: 원)
+icon3 = original_img[668:780, 46:155] # 세 번째 도형 (예: 오각형)
 #icon3 = original_img[519:624, 38:159] # 세 번째 도형 (예: 하트)
 
 # 기준 도형들을 Matplotlib로 시각화 (확인용)
-#displayOriginalIcon()
+# displayOriginalIcon()
 
 # 축소된 아이콘 생성 (1/2 크기로 축소)
 icon1_resized = cv2.resize(icon1, (icon1.shape[1] // 2, icon1.shape[0] // 2))
@@ -142,7 +187,7 @@ icon3_resized = cv2.resize(icon3, (icon3.shape[1] // 2, icon3.shape[0] // 2))
 # 1/2 도형들을 Matplotlib로 시각화 (확인용)
 #displayResizedIcon()
 
-w = 0.5
+w = 0.8
 # 3. 합성곱 기반 매칭
 # 첫 번째 도형 매칭
 # result1 = cv2.matchTemplate(original_img, icon1_resized, cv2.TM_CCOEFF_NORMED)
@@ -158,14 +203,24 @@ w = 0.5
 # # 0.1 : 오각형, 0. : 하트
 
 # 직접 구현한 convolution 기반 matchTemplate 함수 호출
-result1 = custom_match_template(original_img, icon1_resized)
+# result1 = custom_match_template(original_img, icon1_resized)
+# locations1 = np.where(result1 >= w)
+
+# result2 = custom_match_template(original_img, icon2_resized)
+# locations2 = np.where(result2 >= w)
+
+# result3 = custom_match_template(original_img, icon3_resized)
+# locations3 = np.where(result3 >= w - 0.1)
+
+#########################
+result1 = normalized_convolution(original_img, icon1_resized)
 locations1 = np.where(result1 >= w)
 
-result2 = custom_match_template(original_img, icon2_resized)
+result2 = normalized_convolution(original_img, icon2_resized)
 locations2 = np.where(result2 >= w)
 
-result3 = custom_match_template(original_img, icon3_resized)
-locations3 = np.where(result3 >= w - 0.1)
+result3 = normalized_convolution(original_img, icon3_resized)
+locations3 = np.where(result3 >= w-0.1)
 
 
 # 4. 매칭된 위치에 박스 그리기
@@ -176,14 +231,13 @@ output_img = cv2.cvtColor(original_img, cv2.COLOR_GRAY2BGR)
 
 # ㅜㅜㅜㅜㅜㅜㅜ 매칭 결과에 대한 군집 계산 ㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜㅜ
 # 반경 및 최소 좌표 개수 설정 : 민감도 조절 가능.
-radius = 60 # 
-min_count = 10  # 최소 좌표 개수 (군집 크기) 
-customed_count = 8 # 조절용 상수
+radius = 70 # 
+min_count = 15  # 최소 좌표 개수 (최소 클러스터 크기) 
 
 # 군집 계산
 average_locations1 = calculate_average_coordinates(locations1, radius, min_count)
 average_locations2 = calculate_average_coordinates(locations2, radius, min_count)
-average_locations3 = calculate_average_coordinates(locations3, radius, min_count)
+average_locations3 = calculate_average_coordinates(locations3, radius, min_count*4 + 5)
 # average_locations3 = calculate_average_coordinates(locations3, radius, min_count-customed_count)
 
 # 원본 이미지에 평균 좌표 표시
@@ -211,7 +265,7 @@ plt.figure(figsize=(8, 5))
 # plt.subplot(1, 2, 1)
 # plt.title("Original Image")
 # plt.imshow(original_img, cmap='grey')
-#plt.subplot(1, 2, 2)
+# plt.subplot(1, 2, 2)
 plt.title("Detected Matches")
 plt.imshow(output_img, cmap='grey')
 plt.show()
