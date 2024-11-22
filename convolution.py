@@ -229,6 +229,6 @@ plt.show()
 
 # 최종 결과 출력
 plt.figure(figsize=(8, 5))
-plt.title("Detected Matches with Clustered Rectangles")
+plt.title("Detected icons on oroginal image with convolution")
 plt.imshow(output_img_with_averages)
 plt.show()
